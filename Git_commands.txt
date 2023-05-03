@@ -1,3 +1,9 @@
 Force pull:
 git fetch --all
 git reset --hard origin/master
+
+
+Push
+git add .    (Hvis du kun ønsker at add en enkelt fil så skriv navnet på denne istedet for ".")
+git commit -m "KOMMENTAR"
+git push orgin master
