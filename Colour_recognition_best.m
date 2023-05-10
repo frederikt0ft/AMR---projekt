@@ -8,8 +8,7 @@ webcamlist
 webcam
 
 % Connect to selected webcam
-cam = webcam("FaceTime HD Camera",...
-	"Resolution","1920x1080");
+cam = webcam(1)
 
 %% Real time analysis of video
 
