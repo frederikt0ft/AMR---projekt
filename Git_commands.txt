@@ -7,3 +7,8 @@ Push
 git add .    (Hvis du kun ønsker at add en enkelt fil så skriv navnet på denne istedet for ".")
 git commit -m "KOMMENTAR"
 git push orgin master
+
+
+
+SSH command:
+roslaunch turtlebot3_bringup turtlebot3_robot.launch
