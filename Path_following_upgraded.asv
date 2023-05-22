@@ -41,7 +41,7 @@ show(prmComplex)
 %% -----LAVER PATH 2-------
 startLocation2 = [1 1.1];
 endLocation2 = [1.5 1.9];
-path2 = findpath(prmComplex,startLocation2,endLocation2);
+path2 = findpath(prmComplex,endLocation1,endLocation2);
 show(prmComplex)
 %%  Show planned path 1 and 2
 %1st path
@@ -162,57 +162,16 @@ end
 fprintf("first GOAL DONE")
 %---------------------------------PATH 2---------------------------------
 
-%
-% ----------- INITILIZATION ---------
-robotInitialLocation = path2(1,:);
-robotGoal = path2(end,:);
+%%
+%% ----------- INITILIZATION ---------
+robotInitialLocation = path1(1,:);
+robotGoal = path1(end,:);
 initialOrientation = 0;
 robotCurrentPose = [robotInitialLocation initialOrientation]';
 robot = differentialDriveKinematics("TrackWidth", 1, "VehicleInputs", "VehicleSpeedHeadingRate");
 
-% -----------Controller------------- 
-controller = controllerPurePursuit;
-controller.Waypoints = path2;
-controller.DesiredLinearVelocity = 0.1;
-controller.MaxAngularVelocity = 0.5;
-controller.LookaheadDistance = 0.2;
-goalRadius = 0.1;
-distanceToGoal = norm(robotInitialLocation - robotGoal);
-
-% --- Test ---
-odomSub = rossubscriber("/odom","DataFormat","struct");
-r_pose = receive(odomSub);
-fprintf("-----------------------------------------------")
-init_position = [r_pose.pose.pose.position.x r_pose.pose.pose.position.y];
-r_init_orientation = [r_pose.pose.pose.orientation.x r_pose.pose.pose.orientation.y r_pose.pose.pose.orientation.z r_pose.pose.pose.orientation.w];
-eul = quat2eul(r_init_orientation);
-init_orientation = eul(3); %Venstre om 0 til pi. Højre om 0 til -pi
-init_pose = [init_position init_orientation]'
-
-FREDE_OG_ASKES_INIT_O = init_orientation
-
-% --- GØR TURLTEBOT KLAR TIL KAMP ---
-% TIL TURTLEBOT - DEFINITIVT!
-vel_pub = rospublisher('/cmd_vel');
-velmsg = rosmessage(vel_pub);
-odomSub = rossubscriber("/odom","DataFormat","struct");
-
-% Initialize the simulation loop
-sampleTime = 0.1;
-vizRate = rateControl(1/sampleTime);
-
-% Initialize the figure
-figure
-show(new_map);
-
-% Determine vehicle frame size to most closely represent vehicle with plotTransforms
-frameSize = robot.TrackWidth/5;
-s = path2(1,:)
-
-current_pose = robotCurrentPose
-r_pose = receive(odomSub);
-
-init_position = [r_pose.pose.pose.position.x r_pose.pose.pose.position.y] - [endLocation1]     %INITITAL POS DETERMINED
+´
+init_position = [r_pose.pose.pose.position.x r_pose.pose.pose.position.y] - [robotCurrentPose_temp(1) robotCurrentPose_temp(2)];     %INITITAL POS DETERMINED
 r_init_orientation = [r_pose.pose.pose.orientation.x r_pose.pose.pose.orientation.y r_pose.pose.pose.orientation.z r_pose.pose.pose.orientation.w]
 
 eul = quat2eul(r_init_orientation);
@@ -221,6 +180,19 @@ init_pose = [init_position init_orientation]';
 
 theta = eul(3);
 rot_mat = [cosd(theta) -sind(theta); sind(theta) cosd(theta)];
+
+
+odomSub = rossubscriber("/odom","DataFormat","struct");
+r_pose = receive(odomSub);
+fprintf("-----------------------------------------------")
+init_position = [r_pose.pose.pose.position.x r_pose.pose.pose.position.y] - [robotCurrentPose_temp(1) robotCurrentPose_temp(2)];
+r_init_orientation = [r_pose.pose.pose.orientation.x r_pose.pose.pose.orientation.y r_pose.pose.pose.orientation.z r_pose.pose.pose.orientation.w];
+eul = quat2eul(r_init_orientation);
+init_orientation = eul(3); %Venstre om 0 til pi. Højre om 0 til -pi
+init_pose = [init_position init_orientation]'
+
+FREDE_OG_ASKES_INIT_O = init_orientation
+
 
 while( distanceToGoal > goalRadius )
     
