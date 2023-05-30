@@ -1,10 +1,10 @@
 rosshutdown
 %connect 1 den
-setenv('ROS_MASTER_URI','http://192.168.191.58:11311')
+setenv('ROS_MASTER_URI','http://192.168.106.58:11311')
 % 2 mig
-setenv('ROS_IP','192.168.191.157')
+setenv('ROS_IP','192.168.106.157')
 % 3 den mig
-rosinit('http://192.168.191.58:11311','NodeHost','192.168.191.157')
+rosinit('http://192.168.106.58:11311','NodeHost','192.168.106.157')
 
 %%   ----LOAD MAP-----
 % Load the image
@@ -15,7 +15,7 @@ gray_img = rgb2gray(img);
 binary_img = imbinarize(gray_img);
     
 % Create a binary occupancy map from the binary image
-scale_factor = 20;   %500 pixels pr. meter
+scale_factor = 19;   %500 pixels pr. meter
 map = binaryOccupancyMap(binary_img,scale_factor);
 
 % Create a new binary occupancy map from the resized matrix
@@ -30,18 +30,19 @@ NumNodes = 4500;
 prmComplex = mobileRobotPRM(new_map,NumNodes);
 prmComplex.ConnectionDistance = 2;
 show(prmComplex)
-%% -----LAVER PATH 1-------
-%Define start location
 
-startLocation1 = [44.0 25.0];
-endLocation1 = [6.5 10];
+
+%% -----LAVER PATH 1-------
+
+startLocation1 = [47.0 26.0];
+
+endLocation1 = [8 10];
 path1 = findpath(prmComplex,startLocation1,endLocation1)
 show(prmComplex)
 
-
 %% -----LAVER PATH 2-------
-%startLocation2 = [1 1.1];
-endLocation2 = [30.0 3.5];
+
+endLocation2 = [32.5 3.5];
 path2 = findpath(prmComplex,endLocation1,endLocation2);
 show(prmComplex)
 %%  Show planned path 1 and 2
@@ -143,9 +144,9 @@ green_value_range = [0.2 1];
 Z = inf;
 
 
-%% MONTE CARLO INIT (thomas)
 
-%monte carlo 1
+
+%% monte carlo initialization
 
     odometryModel = odometryMotionModel;
     odometryModel.Noise = [0.2 0.2 0.2 0.2];
@@ -159,26 +160,28 @@ Z = inf;
     waitForTransform(tftree,'base_footprint','odom');
     sensorTransform = getTransform(tftree,'base_footprint', 'odom');
 
+    % Get the euler rotation angles.
     laserQuat = [sensorTransform.Transform.Rotation.W sensorTransform.Transform.Rotation.X sensorTransform.Transform.Rotation.Y sensorTransform.Transform.Rotation.Z];
     laserRotation = quat2eul(laserQuat, 'ZYX');
 
     rangeFinderModel.SensorPose = [sensorTransform.Transform.Translation.X sensorTransform.Transform.Translation.Y laserRotation(1)];
 
+    % Receive sensor measurement
     laserSub = rossubscriber('/scan');
     [velPub,velMsg] = rospublisher('/cmd_vel','geometry_msgs/Twist');
 
-    %monte carlo 2
+    % Define Monte Carlo
 
     amcl = monteCarloLocalization;
     amcl.UseLidarScan = true;
 
-    % Assign the |MotionModel| and |SensorModel| properties in the |amcl| object.
+    % Assign the MotionModel and SensorModel properties in the amcl object.
     amcl.MotionModel = odometryModel;
     amcl.SensorModel = rangeFinderModel;
 
     % The particle filter only updates the particles when the robot's movement exceeds
-    % the |UpdateThresholds|
-    amcl.UpdateThresholds = [0.1,0.1,0.1];
+    % the UpdateThresholds
+    amcl.UpdateThresholds = [0.11,0.11,0.11];
     amcl.ResamplingInterval = 1;
 
     % Configure AMCL Object for Localization with Initial Pose Estimate.
@@ -220,7 +223,7 @@ r_pose = receive(odomSub);
     eul = quat2eul([x y z w]);
     orientation = eul(3);                            %VINKEL
 
-    robotCurrentPose = [position orientation]' - init_pose;
+    robotCurrentPose = [position orientation]' - [8 10 0]';
 
 robotCurrentPose_temp = robotCurrentPose
 
@@ -228,17 +231,17 @@ robotCurrentPose_temp = robotCurrentPose
 %% MAIN CODE
 while( distanceToGoal > goalRadius )
 
-    % Collect lidar data (thomas)
+    % Collect the lidar information 
     scan = receive(lidarSub);
     [data, scan_angle] = rosReadCartesian(scan,'RangeLimits', [0.12 3.5]);
     scan_x = data(:,1);
     scan_y = data(:,2);
 
-    % Compute distance of the closest wall (thomas)
+    % Compute the distance to the closest wall
     scan_dist = sqrt(scan_x.^2 + scan_y.^2);
     [scan_minDist, scan_minIndex] = min(scan_dist);
 
-    % Compute angle to the closest wall (thomas)
+    % Compute the angle to the closest wall
     degrees = rad2deg(scan_angle);
     scan_minDeg = degrees(scan_minIndex);
 
@@ -307,7 +310,7 @@ while( distanceToGoal > goalRadius )
     
     % Plot path each instance so that it stays persistent while robot mesh
     % moves
-    plot(path1(:,1), path1(:,2),"k--d")
+    plot(path2(:,1), path2(:,2),"k--d")
     hold all
     
     % Plot the path of the robot as a set of transforms
@@ -342,7 +345,7 @@ fprintf("first GOAL DONE")
 
 figure;
 
-while Z > 0.40
+while Z > 0.50
 
     
     
@@ -408,19 +411,19 @@ while Z > 0.40
 end
 
 t0 = clock;
-while etime(clock, t0) < 6
+while etime(clock, t0) < 3
     velmsg.Linear.X = 0.0;
     velmsg.Angular.Z = 0.5;
     send(vel_pub,velmsg);
 end
 
-
-%
+%%
+robotCurrentPose = [position orientation]' - endLocation1;
 % ----------- INITILIZATION ---------
 robotInitialLocation = path2(1,:);
 robotGoal = path2(end,:);
 initialOrientation = 0;
-robotCurrentPose = [robotInitialLocation initialOrientation]';
+robotCurrentPose = [robotInitialLocation initialOrientation]' - endLocation1;;
 robot = differentialDriveKinematics("TrackWidth", 1, "VehicleInputs", "VehicleSpeedHeadingRate");
 
 % -----------Controller------------- 
@@ -459,7 +462,7 @@ figure
 show(new_map);
 
 % Determine vehicle frame size to most closely represent vehicle with plotTransforms
-frameSize = robot.TrackWidth/5;
+frameSize = robot.TrackWidth;
 s = path2(1,:)
 
 current_pose = robotCurrentPose
@@ -509,17 +512,17 @@ Z = inf;
 while( distanceToGoal > goalRadius )
     
 
-    % Collect lidar data (thomas)
+    % Collect the lidar information 
     scan = receive(lidarSub);
     [data, scan_angle] = rosReadCartesian(scan,'RangeLimits', [0.12 3.5]);
     scan_x = data(:,1);
     scan_y = data(:,2);
 
-    % Compute distance of the closest wall (thomas)
+    % Compute the distance to the closest wall
     scan_dist = sqrt(scan_x.^2 + scan_y.^2);
     [scan_minDist, scan_minIndex] = min(scan_dist);
 
-    % Compute angle to the closest wall (thomas)
+    % Compute the angle to the closest wall
     degrees = rad2deg(scan_angle);
     scan_minDeg = degrees(scan_minIndex);
 
@@ -527,9 +530,6 @@ while( distanceToGoal > goalRadius )
         
 
     
-
-
-
     % Compute the controller outputs, i.e., the inputs to the robot
     [v, omega] = controller(robotCurrentPose_temp);
     velmsg.Angular.Z = omega;	% Angular velocity (rad/s)
@@ -548,7 +548,7 @@ while( distanceToGoal > goalRadius )
     eul = quat2eul([x y z w]);
     orientation = eul(3);                            %VINKEL
 
-    robotCurrentPose = [position orientation]' - init_pose; %+ [0 0 FREDE_OG_ASKES_INIT_O]' %OUTPUTS X_POS Y_POS VINKEL(rad)  -shIFTED START
+    robotCurrentPose = [position orientation]' - [8 10 0]'; %+ [0 0 FREDE_OG_ASKES_INIT_O]' %OUTPUTS X_POS Y_POS VINKEL(rad)  -shIFTED START
     
     % Receive laser scan and odometry message.
     scanMsg = receive(laserSub);
@@ -573,6 +573,19 @@ while( distanceToGoal > goalRadius )
 
 
 
+
+
+
+
+    
+    %vel = derivative(robot, robotCurrentPose, [v omega]);
+    
+    % Update the current pose
+    %robotCurrentPose = robotCurrentPose + vel*sampleTime; 
+    s(end+1,:) = robotCurrentPose(1:2);
+    % Re-compute the distance to the goal
+    distanceToGoal = norm(robotCurrentPose(1:2) - robotGoal(:));
+    
     % Update the plot
     hold off
     
@@ -586,9 +599,9 @@ while( distanceToGoal > goalRadius )
     plotRot = axang2quat([0 0 1 robotCurrentPose(3)]);
     plotTransforms(plotTrVec', plotRot, "MeshFilePath", "groundvehicle.stl", "Parent", gca, "View","2D", "FrameSize", frameSize);
     light;
-
-   
+    robotCurrentPose_temp = robotCurrentPose
     waitfor(vizRate);
+
 
      linescan = receive(scansub); %Receive message
      ranges = linescan.Ranges; % Extract scan
@@ -613,7 +626,7 @@ end
 figure;
 
 %
-while Z > 0.45
+while Z > 0.50
 
     
     
